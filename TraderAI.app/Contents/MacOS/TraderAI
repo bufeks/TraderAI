@@ -1,13 +1,11 @@
 #!/bin/bash
-# TraderAI.app 実行本体。ダブルクリックで Dock アプリとして起動し、
-# Web ダッシュボードのサーバを動かしつつ既定ブラウザを開く。
-# Terminal ウィンドウは出ない。停止は Dock アイコン右クリック →「終了」。
+# TraderAI.app 実行本体。ダブルクリックで Dock アプリとして起動。
+# 初回は依存ライブラリを自動セットアップし、サーバ起動を待ってブラウザを開く。
+# Terminal は出ない。停止は Dock アイコン右クリック →「終了」。
 
 PORT="${TRADERAI_PORT:-8787}"
 
 # --- リポジトリの場所を特定 ---------------------------------------
-# 通常は .app がリポジトリ直下にあるので、そこから探索。見つからなければ
-# ~/TraderAI をフォールバックに使う。
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO=""
 d="$SELF_DIR"
@@ -24,20 +22,36 @@ if [ -z "$REPO" ]; then
 fi
 cd "$REPO" || exit 1
 
-# --- 使う Python を決定(venv 優先) ------------------------------
-if [ -x "$REPO/.venv/bin/python" ]; then
-  PY="$REPO/.venv/bin/python"
-elif command -v python3 >/dev/null 2>&1; then
-  PY="python3"
-else
-  PY="python"
+LOG="/tmp/traderai_setup.log"
+
+# --- venv が無ければ作成 ------------------------------------------
+if [ ! -x "$REPO/.venv/bin/python" ]; then
+  python3 -m venv "$REPO/.venv" >"$LOG" 2>&1
+fi
+PY="$REPO/.venv/bin/python"
+[ -x "$PY" ] || PY="python3"
+
+# --- 依存ライブラリを確認。無ければ初回自動セットアップ ----------
+if ! "$PY" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; then
+  osascript -e 'display notification "初期セットアップ中… 数分かかる場合があります" with title "TraderAI"' >/dev/null 2>&1
+  "$PY" -m pip install --upgrade pip setuptools wheel >"$LOG" 2>&1
+  "$PY" -m pip install -e "$REPO" >>"$LOG" 2>&1
+  if ! "$PY" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; then
+    osascript -e 'display alert "TraderAI セットアップ失敗" message "依存ライブラリのインストールに失敗しました。ターミナルで cd ~/TraderAI && source .venv/bin/activate && pip install -e . を実行してエラーを確認してください(ログ: /tmp/traderai_setup.log)。"' >/dev/null 2>&1
+    exit 1
+  fi
 fi
 
 # 起動のたびに純資産スナップショットを記録(推移グラフ用、失敗は無視)。
 "$PY" -m traderai.cli journal snapshot --note auto >/dev/null 2>&1
 
-# サーバ起動の少し後にブラウザを開く。
-( sleep 1.5; open "http://127.0.0.1:${PORT}" ) >/dev/null 2>&1 &
+# サーバが応答してからブラウザを開く(初回セットアップの遅延に対応)。
+( for _ in $(seq 1 90); do
+    if curl -s "http://127.0.0.1:${PORT}/data" >/dev/null 2>&1; then
+      open "http://127.0.0.1:${PORT}"; break
+    fi
+    sleep 1
+  done ) >/dev/null 2>&1 &
 
-# サーバを前面実行(プロセスが生きている間 .app は起動状態。終了は Dock→終了)。
+# サーバを前面実行(プロセスが生きている間 .app は起動状態)。
 exec "$PY" -m traderai.cli serve --host 127.0.0.1 --port "$PORT"
