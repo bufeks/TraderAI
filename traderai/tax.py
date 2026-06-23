@@ -92,3 +92,21 @@ def nisa_remaining(growth_used: float, tsumitate_used: float) -> dict[str, float
 def taxable_account_tax(gain: float) -> float:
     """課税口座で利益が出た場合の概算税額(NISA なら 0)。"""
     return max(gain, 0) * TAXABLE_GAIN_RATE
+
+
+def furusato_nozei_limit(
+    resident_income_levy: float, income_tax_rate: float
+) -> float:
+    """ふるさと納税の控除上限額(自己負担 2,000 円に収まる目安)を返す。
+
+    住民税所得割額ベースの一般的な目安式:
+        上限 = 住民税所得割額 × 20% / (90% − 所得税率 × 1.021) + 2,000
+
+    resident_income_levy: 住民税所得割額(区民税+都民税の所得割の合計)
+    income_tax_rate: 所得税の限界税率(例 0.20)
+    ※あくまで目安。正確な額は各自治体・各シミュレータで確認のこと。
+    """
+    denominator = 0.9 - income_tax_rate * 1.021
+    if denominator <= 0:
+        return 0.0
+    return resident_income_levy * 0.2 / denominator + 2000

@@ -62,8 +62,8 @@ traderai import-rakuten 投信一覧.csv --into accounts --asset-class 投資信
 traderai risk                              # accounts.json の集中度(HHI・実効銘柄数)
 traderai risk --drawdown 7011.T --period 2y   # 最大ドローダウン
 
-# 税の概算(iDeCo節税・NISA)※確定値ではありません
-traderai tax --taxable-income 5931000 --ideco-monthly 23000 --years 21
+# 税の概算(iDeCo節税・NISA・ふるさと納税)※確定値ではありません
+traderai tax --taxable-income 5931000 --ideco-monthly 23000 --years 21 --resident-income-levy 590500
 
 # リバランス提案(目標配分との乖離 → 売買候補)
 traderai rebalance --target "外国株式=35,投資信託=25,国内株式=20,米国株式=10,現金=8,暗号資産=2"
