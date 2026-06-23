@@ -91,3 +91,49 @@ def scenarios(
 ) -> dict[float, float]:
     """想定年利ごとの最終評価額を返す(年利 → 最終 value)。"""
     return {rate: future_value(principal, monthly, rate, years) for rate in rates}
+
+
+def future_value_stepup(
+    principal: float,
+    monthly: float,
+    annual_return: float,
+    years: int,
+    contribution_growth: float = 0.0,
+) -> float:
+    """毎年 contribution_growth の割合で積立額を増やす場合の将来価値。
+
+    月内は定額・年初に積立額を増額する近似(月次複利)。
+    """
+    months_per_year = 12
+    r = annual_return / 12
+    value = principal
+    m = monthly
+    for _ in range(years):
+        for _ in range(months_per_year):
+            value = value * (1 + r) + m
+        m *= 1 + contribution_growth
+    return value
+
+
+def years_to_target(
+    principal: float,
+    monthly: float,
+    annual_return: float,
+    target: float,
+    max_years: int = 100,
+    contribution_growth: float = 0.0,
+) -> float | None:
+    """目標額に到達するまでの年数を返す(到達しなければ None)。"""
+    if principal >= target:
+        return 0.0
+    for y in range(1, max_years + 1):
+        if future_value_stepup(principal, monthly, annual_return, y, contribution_growth) >= target:
+            return y
+    return None
+
+
+def fire_number(annual_expense: float, withdrawal_rate: float = 0.04) -> float:
+    """FIRE 必要資産額(年間支出 ÷ 安全引出率)。既定は 4%ルール。"""
+    if withdrawal_rate <= 0:
+        raise ValueError("withdrawal_rate は正の数を指定してください。")
+    return annual_expense / withdrawal_rate
