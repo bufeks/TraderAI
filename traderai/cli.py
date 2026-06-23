@@ -27,6 +27,7 @@ from .simulation import future_value_with_tax, project, scenarios
 from .tax import (
     TAXABLE_GAIN_RATE,
     combined_marginal_rate,
+    furusato_nozei_limit,
     ideco_tax_benefit,
     marginal_income_tax_rate,
 )
@@ -286,6 +287,13 @@ def _cmd_tax(args: argparse.Namespace) -> int:
 
     print(f"[NISA] 運用益が非課税。課税口座なら利益に約{TAXABLE_GAIN_RATE*100:.1f}%課税。")
     print("  例: 100万円の利益 → 課税口座で約 203,150 円の税、NISA なら 0 円。")
+
+    if args.resident_income_levy:
+        limit = furusato_nozei_limit(args.resident_income_levy, inc_rate)
+        print(
+            f"\n[ふるさと納税] 住民税所得割 {args.resident_income_levy:,.0f}円 → "
+            f"控除上限の目安 約 {limit:,.0f} 円(自己負担2,000円)"
+        )
     return 0
 
 
@@ -415,6 +423,7 @@ def main(argv: list[str] | None = None) -> int:
     p_tax.add_argument("--ideco-monthly", type=float, default=23000, help="iDeCo 月額掛金(既定 23000)")
     p_tax.add_argument("--years", type=int, default=21, help="累計を出す年数(既定 21)")
     p_tax.add_argument("--resident-rate", type=float, default=0.10, help="住民税率(既定 0.10)")
+    p_tax.add_argument("--resident-income-levy", type=float, default=None, help="住民税所得割額(指定でふるさと納税上限を試算)")
     p_tax.set_defaults(func=_cmd_tax)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")

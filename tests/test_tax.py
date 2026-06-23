@@ -1,5 +1,6 @@
 from traderai.tax import (
     combined_marginal_rate,
+    furusato_nozei_limit,
     ideco_tax_benefit,
     marginal_income_tax_rate,
     nisa_remaining,
@@ -36,3 +37,10 @@ def test_nisa_remaining():
 def test_taxable_account_tax():
     assert abs(taxable_account_tax(1_000_000) - 203_150) < 1
     assert taxable_account_tax(-5000) == 0
+
+
+def test_furusato_limit():
+    # 通知書: 住民税所得割 区民354,300 + 都民236,200 = 590,500、所得税率20%
+    limit = furusato_nozei_limit(590_500, 0.20)
+    # 目安式 = 590500*0.2/(0.9-0.2*1.021)+2000 ≈ 171,700
+    assert 168_000 < limit < 175_000
