@@ -34,3 +34,16 @@ def test_dashboard_data_with_holdings_and_trend(tmp_path: Path):
     assert set(d["allocation"]) == {"外国株式", "国内株式"}
     assert len(d["trend"]) == 1
     assert d["trend"][0]["value"] == d["total_value"]
+
+    # 充実化フィールド
+    assert len(d["holdings"]) == 2
+    assert d["holdings"][0]["value"] >= d["holdings"][1]["value"]  # 評価額降順
+    assert d["holdings"][0]["pl"] == d["holdings"][0]["value"] - (
+        100000 if d["holdings"][0]["name"] == "日本株" else 79073
+    )
+    assert d["by_account"]["楽天証券"] == 120000
+    assert len(d["stress"]) >= 1
+    assert all("loss_pct" in s for s in d["stress"])
+    assert d["risk"]["effective_n"] > 0
+    assert d["risk"]["top_name"] in ("全世界株", "日本株")
+
