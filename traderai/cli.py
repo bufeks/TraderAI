@@ -28,7 +28,13 @@ from .rebalance import parse_target, rebalance
 from .report import build_report
 from .risk import concentration, max_drawdown
 from .screener import fetch_metrics, value_score
-from .simulation import future_value_with_tax, project, scenarios
+from .simulation import (
+    fire_number,
+    future_value_with_tax,
+    project,
+    scenarios,
+    years_to_target,
+)
 from .stress import run_all as stress_run_all
 from .watchlist import Watchlist
 from .tax import (
@@ -519,6 +525,32 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_fire(args: argparse.Namespace) -> int:
+    config = Config.load()
+    principal = args.principal
+    if principal is None:
+        principal = AccountBook(config.accounts_path).total_value()
+    target = fire_number(args.annual_expense, args.swr)
+    cur = config.base_currency
+    print(f"=== FIRE シミュレーション({cur}) ===")
+    print(f"年間支出: {args.annual_expense:,.0f} / 安全引出率: {args.swr*100:.1f}%")
+    print(f"FIRE 必要資産: {target:,.0f}")
+    print(f"現在の元本: {principal:,.0f} / 毎月積立: {args.monthly:,.0f}", end="")
+    print(f" / 積立年次増額: {args.contribution_growth*100:.0f}%" if args.contribution_growth else "")
+    print()
+    rates = tuple(float(x) / 100 for x in args.rates.split(","))
+    for rate in rates:
+        yrs = years_to_target(
+            principal, args.monthly, rate, target,
+            contribution_growth=args.contribution_growth,
+        )
+        if yrs is None:
+            print(f"  年利 {rate*100:.0f}%: 100年以内に未到達")
+        else:
+            print(f"  年利 {rate*100:.0f}%: 約 {yrs:.0f} 年で到達(到達時 {target:,.0f})")
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     from .web import serve
 
@@ -685,6 +717,15 @@ def main(argv: list[str] | None = None) -> int:
     p_report = sub.add_parser("report", help="日次レポート(純資産・ストレス・アラート・知識警告)")
     p_report.add_argument("--notify", action="store_true", help="Slack(SLACK_WEBHOOK_URL)へ配信")
     p_report.set_defaults(func=_cmd_report)
+
+    p_fire = sub.add_parser("fire", help="FIRE 到達年の逆算(積立増額対応)")
+    p_fire.add_argument("--annual-expense", type=float, required=True, help="年間支出(円)")
+    p_fire.add_argument("--swr", type=float, default=0.04, help="安全引出率(既定 0.04=4%ルール)")
+    p_fire.add_argument("--principal", type=float, default=None, help="現在元本(未指定なら networth 合計)")
+    p_fire.add_argument("--monthly", type=float, default=53000, help="毎月積立(既定 53000)")
+    p_fire.add_argument("--contribution-growth", type=float, default=0.0, help="積立額の年次増加率(例 0.03)")
+    p_fire.add_argument("--rates", default="3,5,7", help="想定年利%をカンマ区切り")
+    p_fire.set_defaults(func=_cmd_fire)
 
     p_serve = sub.add_parser("serve", help="Web ダッシュボードを起動")
     p_serve.add_argument("--host", default="127.0.0.1")

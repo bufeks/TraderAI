@@ -104,6 +104,9 @@ traderai knowledge related NVDA # 共通タグの関連銘柄
 # Web ダッシュボード(純資産推移・資産配分のグラフ)
 traderai serve   # http://127.0.0.1:8787
 
+# FIRE 到達年の逆算(積立増額対応)
+traderai fire --annual-expense 3600000 --monthly 53000 --contribution-growth 0.03
+
 # エージェントと対話(履歴・知識も参照して助言)
 traderai chat
 ```
@@ -221,3 +224,4 @@ pytest -q
 - [x] CI(GitHub Actions で pytest)
 - [x] 知識グラフ(タグで銘柄を関連付け / Neo4j不要)(`graph.py` / `knowledge graph|related`)
 - [x] Web ダッシュボード(純資産推移・配分の可視化)(`web.py` / `traderai serve`)
+- [x] FIRE 到達年逆算 / 積立増額シナリオ(`simulation.py` / `traderai fire`)
