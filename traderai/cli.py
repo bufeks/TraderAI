@@ -519,6 +519,13 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_serve(args: argparse.Namespace) -> int:
+    from .web import serve
+
+    serve(Config.load(), host=args.host, port=args.port)
+    return 0
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -678,6 +685,11 @@ def main(argv: list[str] | None = None) -> int:
     p_report = sub.add_parser("report", help="日次レポート(純資産・ストレス・アラート・知識警告)")
     p_report.add_argument("--notify", action="store_true", help="Slack(SLACK_WEBHOOK_URL)へ配信")
     p_report.set_defaults(func=_cmd_report)
+
+    p_serve = sub.add_parser("serve", help="Web ダッシュボードを起動")
+    p_serve.add_argument("--host", default="127.0.0.1")
+    p_serve.add_argument("--port", type=int, default=8787)
+    p_serve.set_defaults(func=_cmd_serve)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
