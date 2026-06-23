@@ -88,7 +88,11 @@ traderai watch list
 traderai journal snapshot --note "月次記録"   # 現在の純資産を時系列に記録
 traderai journal log                          # 履歴・前回比・累計変化を表示
 
-# エージェントと対話(履歴=推移も参照できる)
+# 知識ループ(投資テーゼ・教訓・失敗パターンを記録→自動警告)
+traderai knowledge add "高PER/高RSIで掴むと反落で痛い" --kind lesson --symbol NVDA --metric rsi --op gt --threshold 75
+traderai knowledge check NVDA   # 現在の指標とトリガーを照合して警告
+
+# エージェントと対話(履歴・知識も参照して助言)
 traderai chat
 ```
 
@@ -165,6 +169,7 @@ traderai/
   stress.py        ストレステスト(相場シナリオ)
   screener.py      バリュースコア・スクリーナー
   watchlist.py     ウォッチリスト
+  knowledge.py     知識ループ(テーゼ・教訓・失敗パターン→自動警告)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -196,3 +201,4 @@ pytest -q
 - [x] ストレステスト(相場シナリオ)(`stress.py` / `traderai stress`)
 - [x] バリュースコア・スクリーナー(`screener.py` / `traderai screen`)
 - [x] ウォッチリスト(`watchlist.py` / `traderai watch`)
+- [x] 知識ループ(投資テーゼ・失敗パターン→自動警告)(`knowledge.py` / `traderai knowledge`)
