@@ -35,6 +35,11 @@ class Config:
         """アラートルールの保存先。"""
         return self.portfolio_path.with_name("alerts.json")
 
+    @property
+    def journal_path(self) -> Path:
+        """分析スナップショット(時系列)の保存先。"""
+        return self.portfolio_path.with_name("journal.jsonl")
+
     @classmethod
     def load(cls) -> "Config":
         portfolio_path = os.environ.get("TRADERAI_PORTFOLIO_PATH")
