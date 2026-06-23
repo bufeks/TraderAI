@@ -24,6 +24,7 @@ from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .rebalance import parse_target, rebalance
 from .risk import concentration, max_drawdown
+from .screener import fetch_metrics, value_score
 from .simulation import future_value_with_tax, project, scenarios
 from .stress import run_all as stress_run_all
 from .tax import (
@@ -322,6 +323,23 @@ def _cmd_rebalance(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_screen(args: argparse.Namespace) -> int:
+    results = []
+    for symbol in args.symbols:
+        try:
+            m = fetch_metrics(symbol)
+        except MarketDataError as exc:
+            print(f"{symbol}: 取得失敗 ({exc})", file=sys.stderr)
+            continue
+        results.append(value_score(symbol, m))
+    results.sort(key=lambda r: r.total, reverse=True)
+    print("=== バリュースコア(100点満点。割安・優良ほど高得点) ===")
+    for r in results:
+        bd = " ".join(f"{k}{v}" for k, v in r.breakdown.items())
+        print(f"{r.symbol:<10} {r.total:>3}点  [{bd}]")
+    return 0
+
+
 def _cmd_stress(args: argparse.Namespace) -> int:
     config = Config.load()
     book = AccountBook(config.accounts_path)
@@ -482,6 +500,10 @@ def main(argv: list[str] | None = None) -> int:
 
     p_stress = sub.add_parser("stress", help="相場シナリオでのストレステスト")
     p_stress.set_defaults(func=_cmd_stress)
+
+    p_screen = sub.add_parser("screen", help="バリュースコアで銘柄を採点")
+    p_screen.add_argument("symbols", nargs="+", help="ティッカー(複数可)")
+    p_screen.set_defaults(func=_cmd_screen)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
