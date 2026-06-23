@@ -90,3 +90,17 @@ def test_symbols_data(tmp_path: Path, monkeypatch):
     assert syms["7203.T"]["change_pct"] is not None
     assert len(syms["7203.T"]["history"]) > 0
     assert syms["7203.T"]["error"] is None
+
+
+def test_forecast_reads_settings(tmp_path: Path, monkeypatch):
+    # 環境変数を無効化し、settings.json から積立額・年数を読むことを確認
+    monkeypatch.delenv("TRADERAI_MONTHLY", raising=False)
+    monkeypatch.delenv("TRADERAI_FORECAST_YEARS", raising=False)
+    config = _config(tmp_path)
+    config.save_settings({"monthly_contribution": 53000, "forecast_years": 15})
+    book = AccountBook(config.accounts_path)
+    book.add("株", "口座", "外国株式", 100, 1_000_000)
+    f = dashboard_data(config)["forecast"]
+    assert f["monthly"] == 53000
+    assert f["years"] == 15
+    assert len(f["rates"]["5"]) == 16

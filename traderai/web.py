@@ -67,10 +67,16 @@ def dashboard_data(config: Config) -> dict:
         "top_pct": round(top_val / total * 100, 1) if total else 0,
     }
 
-    # 未来:現在の純資産を元本に、毎月積立(TRADERAI_MONTHLY)を続けた場合の予測。
+    # 未来:現在の純資産を元本に、毎月積立を続けた場合の予測。
+    # 積立額は 環境変数 > 設定ファイル(settings.json) > 既定 の順で解決。
+    settings = config.load_settings()
     total = book.total_value()
-    monthly = float(os.environ.get("TRADERAI_MONTHLY", "0") or 0)
-    years = int(os.environ.get("TRADERAI_FORECAST_YEARS", "20") or 20)
+    monthly = float(
+        os.environ.get("TRADERAI_MONTHLY") or settings.get("monthly_contribution") or 0
+    )
+    years = int(
+        os.environ.get("TRADERAI_FORECAST_YEARS") or settings.get("forecast_years") or 20
+    )
     forecast = {
         "monthly": monthly,
         "years": years,

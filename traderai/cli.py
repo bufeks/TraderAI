@@ -571,6 +571,27 @@ def _cmd_fire(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_config(args: argparse.Namespace) -> int:
+    config = Config.load()
+    settings = config.load_settings()
+    changed = False
+    if args.monthly is not None:
+        settings["monthly_contribution"] = args.monthly
+        changed = True
+    if args.forecast_years is not None:
+        settings["forecast_years"] = args.forecast_years
+        changed = True
+    if changed:
+        config.save_settings(settings)
+        print(f"保存しました → {config.settings_path}")
+    if settings:
+        for k, v in settings.items():
+            print(f"  {k}: {v}")
+    else:
+        print("設定はまだありません。--monthly などで設定できます。")
+    return 0
+
+
 def _cmd_serve(args: argparse.Namespace) -> int:
     from .web import serve
 
@@ -754,6 +775,11 @@ def main(argv: list[str] | None = None) -> int:
     p_fire.add_argument("--contribution-growth", type=float, default=0.0, help="積立額の年次増加率(例 0.03)")
     p_fire.add_argument("--rates", default="3,5,7", help="想定年利%をカンマ区切り")
     p_fire.set_defaults(func=_cmd_fire)
+
+    p_config = sub.add_parser("config", help="ユーザー設定(将来予測の積立額など)")
+    p_config.add_argument("--monthly", type=float, default=None, help="毎月の積立額(将来予測に使用)")
+    p_config.add_argument("--forecast-years", type=int, default=None, help="将来予測の年数")
+    p_config.set_defaults(func=_cmd_config)
 
     p_serve = sub.add_parser("serve", help="Web ダッシュボードを起動")
     p_serve.add_argument("--host", default="127.0.0.1")
