@@ -43,6 +43,32 @@ def future_value(
     return fv_principal + fv_contrib
 
 
+def future_value_annual_lump(
+    annual_lump: float, annual_return: float, years: int
+) -> float:
+    """毎年末に annual_lump を投資した場合の将来価値(年複利)。
+
+    iDeCo の節税還付分など、年 1 回入る資金を再投資する想定。
+    """
+    if annual_return == 0:
+        return annual_lump * years
+    g = 1 + annual_return
+    return annual_lump * ((g**years - 1) / annual_return)
+
+
+def future_value_with_tax(
+    principal: float,
+    monthly: float,
+    annual_return: float,
+    years: int,
+    annual_tax_saving: float = 0.0,
+) -> float:
+    """月次積立 + 年次の節税還付再投資を含む将来価値。"""
+    return future_value(principal, monthly, annual_return, years) + (
+        future_value_annual_lump(annual_tax_saving, annual_return, years)
+    )
+
+
 def project(
     principal: float, monthly: float, annual_return: float, years: int
 ) -> list[YearPoint]:
