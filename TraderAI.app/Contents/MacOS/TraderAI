@@ -1,0 +1,43 @@
+#!/bin/bash
+# TraderAI.app 実行本体。ダブルクリックで Dock アプリとして起動し、
+# Web ダッシュボードのサーバを動かしつつ既定ブラウザを開く。
+# Terminal ウィンドウは出ない。停止は Dock アイコン右クリック →「終了」。
+
+PORT="${TRADERAI_PORT:-8787}"
+
+# --- リポジトリの場所を特定 ---------------------------------------
+# 通常は .app がリポジトリ直下にあるので、そこから探索。見つからなければ
+# ~/TraderAI をフォールバックに使う。
+SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO=""
+d="$SELF_DIR"
+for _ in 1 2 3 4 5 6; do
+  if [ -f "$d/pyproject.toml" ]; then REPO="$d"; break; fi
+  d="$(dirname "$d")"
+done
+if [ -z "$REPO" ] && [ -f "$HOME/TraderAI/pyproject.toml" ]; then
+  REPO="$HOME/TraderAI"
+fi
+if [ -z "$REPO" ]; then
+  osascript -e 'display alert "TraderAI" message "リポジトリが見つかりません。TraderAI.app を TraderAI フォルダ内に置くか、~/TraderAI に配置してください。"' >/dev/null 2>&1
+  exit 1
+fi
+cd "$REPO" || exit 1
+
+# --- 使う Python を決定(venv 優先) ------------------------------
+if [ -x "$REPO/.venv/bin/python" ]; then
+  PY="$REPO/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+else
+  PY="python"
+fi
+
+# 起動のたびに純資産スナップショットを記録(推移グラフ用、失敗は無視)。
+"$PY" -m traderai.cli journal snapshot --note auto >/dev/null 2>&1
+
+# サーバ起動の少し後にブラウザを開く。
+( sleep 1.5; open "http://127.0.0.1:${PORT}" ) >/dev/null 2>&1 &
+
+# サーバを前面実行(プロセスが生きている間 .app は起動状態。終了は Dock→終了)。
+exec "$PY" -m traderai.cli serve --host 127.0.0.1 --port "$PORT"
