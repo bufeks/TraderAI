@@ -1,0 +1,32 @@
+[project]
+name = "traderai"
+version = "0.1.0"
+description = "Claude を活用した株式運用・資産形成サポートエージェント"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "anthropic>=0.49",
+    "yfinance>=0.2.40",
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+traderai = "traderai.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["traderai*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
