@@ -62,6 +62,9 @@ traderai import-rakuten 投信一覧.csv --into accounts --asset-class 投資信
 traderai risk                              # accounts.json の集中度(HHI・実効銘柄数)
 traderai risk --drawdown 7011.T --period 2y   # 最大ドローダウン
 
+# 税の概算(iDeCo節税・NISA)※確定値ではありません
+traderai tax --taxable-income 5931000 --ideco-monthly 23000 --years 21
+
 # 円換算合計は `traderai portfolio` の末尾に表示(USD/JPY 自動換算)
 # bitFlyer 残高は公開ティッカーで円建て自動評価(`traderai balances`)
 
@@ -136,6 +139,7 @@ traderai/
   importers.py     楽天証券 CSV 取込
   fx.py            為替換算(USD/JPY)
   risk.py          リスク分析(集中度・相関・DD)
+  tax.py           税の概算(iDeCo節税・NISA・課税口座)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -158,3 +162,5 @@ pytest -q
 - [x] 通貨換算(USD/JPY)を加味した自動合算(`fx.py` / `portfolio` 円換算合計)
 - [x] ポートフォリオのリスク分析(集中度・相関・ドローダウン)(`risk.py` / `traderai risk`)
 - [x] 楽天証券 CSV の自動取込フロー(`importers.py` / `traderai import-rakuten`)
+- [x] 税の概算(iDeCo節税・NISA)(`tax.py` / `traderai tax`)
+- [x] bitFlyer 暗号資産の円建て自動評価 / cron 定期実行(`examples/cron_check.sh`)
