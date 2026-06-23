@@ -51,8 +51,12 @@ traderai alerts list
 traderai alerts check     # 条件成立を Slack(SLACK_WEBHOOK_URL)へ通知
 
 # 将来資産シミュレーション(積立)
-traderai simulate --years 21 --monthly 54000 --rates 3,5,7 --detail
+traderai simulate --years 21 --monthly 53000 --rates 3,5,7 --detail
 # --principal 未指定なら networth(accounts.json)の合計を元本に使用
+
+# 楽天証券の保有一覧 CSV を取り込む
+traderai import-rakuten 保有商品一覧.csv --into portfolio          # 個別株
+traderai import-rakuten 投信一覧.csv --into accounts --asset-class 投資信託
 
 # エージェントと対話
 traderai chat
@@ -103,6 +107,10 @@ traderai/
   analysis.py      テクニカル指標
   portfolio.py     保有・損益・永続化
   symbols.py       シンボル正規化(4桁コード→.T)
+  accounts.py      iDeCo・投信など手動評価額の口座横断集計
+  alerts.py        価格・指標アラート(Slack 通知)
+  simulation.py    積立による将来資産シミュレーション
+  importers.py     楽天証券 CSV 取込
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -124,4 +132,4 @@ pytest -q
 - [x] 積立を踏まえた将来資産シミュレーション(`simulation.py` / `traderai simulate`)
 - [ ] 通貨換算(USD/JPY)を加味した自動合算
 - [ ] ポートフォリオのリスク分析(相関・集中度・ドローダウン)
-- [ ] 楽天証券 CSV の自動取込フロー
+- [x] 楽天証券 CSV の自動取込フロー(`importers.py` / `traderai import-rakuten`)
