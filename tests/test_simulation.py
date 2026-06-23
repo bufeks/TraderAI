@@ -1,4 +1,10 @@
-from traderai.simulation import future_value, project, scenarios
+from traderai.simulation import (
+    future_value,
+    future_value_annual_lump,
+    future_value_with_tax,
+    project,
+    scenarios,
+)
 
 
 def test_zero_return_is_principal_plus_contributions():
@@ -27,6 +33,18 @@ def test_project_length_and_endpoints():
     assert points[-1].year == 10
     # invested は初期元本 + 累計積立
     assert points[10].invested == 1_000_000 + 50_000 * 12 * 10
+
+
+def test_annual_lump_zero_return():
+    assert future_value_annual_lump(80_000, 0.0, 21) == 80_000 * 21
+
+
+def test_with_tax_exceeds_without():
+    base = future_value(1_480_707, 53_000, 0.05, 21)
+    with_tax = future_value_with_tax(1_480_707, 53_000, 0.05, 21, annual_tax_saving=82_800)
+    assert with_tax > base
+    # 差は年次ランプの将来価値ぶん
+    assert abs((with_tax - base) - future_value_annual_lump(82_800, 0.05, 21)) < 1e-6
 
 
 def test_scenarios_monotonic():

@@ -65,6 +65,12 @@ traderai risk --drawdown 7011.T --period 2y   # 最大ドローダウン
 # 税の概算(iDeCo節税・NISA)※確定値ではありません
 traderai tax --taxable-income 5931000 --ideco-monthly 23000 --years 21
 
+# リバランス提案(目標配分との乖離 → 売買候補)
+traderai rebalance --target "外国株式=35,投資信託=25,国内株式=20,米国株式=10,現金=8,暗号資産=2"
+
+# 節税を織り込んだシミュレーション(iDeCo節税分を再投資した実質利回り)
+traderai simulate --years 21 --monthly 53000 --taxable-income 5931000 --ideco-monthly 23000
+
 # 円換算合計は `traderai portfolio` の末尾に表示(USD/JPY 自動換算)
 # bitFlyer 残高は公開ティッカーで円建て自動評価(`traderai balances`)
 
@@ -140,6 +146,7 @@ traderai/
   fx.py            為替換算(USD/JPY)
   risk.py          リスク分析(集中度・相関・DD)
   tax.py           税の概算(iDeCo節税・NISA・課税口座)
+  rebalance.py     リバランス提案(目標配分との乖離)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -164,3 +171,5 @@ pytest -q
 - [x] 楽天証券 CSV の自動取込フロー(`importers.py` / `traderai import-rakuten`)
 - [x] 税の概算(iDeCo節税・NISA)(`tax.py` / `traderai tax`)
 - [x] bitFlyer 暗号資産の円建て自動評価 / cron 定期実行(`examples/cron_check.sh`)
+- [x] リバランス提案(`rebalance.py` / `traderai rebalance`)
+- [x] 節税を織り込んだシミュレーション(`simulate --taxable-income`)

@@ -21,14 +21,18 @@ from .importers import (
 )
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
+from .rebalance import parse_target, rebalance
 from .risk import concentration, max_drawdown
-from .simulation import project, scenarios
+from .simulation import future_value_with_tax, project, scenarios
 from .tax import (
     TAXABLE_GAIN_RATE,
     combined_marginal_rate,
     ideco_tax_benefit,
     marginal_income_tax_rate,
 )
+
+# リバランスの既定目標配分(例。個別株偏重を是正する方向。--target で上書き可)
+DEFAULT_TARGET = "外国株式=35,投資信託=25,国内株式=20,米国株式=10,現金=8,暗号資産=2"
 
 
 def _cmd_quote(args: argparse.Namespace) -> int:
@@ -238,10 +242,23 @@ def _cmd_simulate(args: argparse.Namespace) -> int:
     total_invested = principal + args.monthly * 12 * args.years
     print(f"投資元本合計(積立含む): {total_invested:,.0f}\n")
 
+    # iDeCo 節税分の再投資(任意)
+    annual_tax_saving = 0.0
+    if args.taxable_income:
+        benefit = ideco_tax_benefit(args.ideco_monthly, args.taxable_income, args.years)
+        annual_tax_saving = benefit.annual_saving
+        print(f"iDeCo 節税(年 約{annual_tax_saving:,.0f}円)を毎年再投資した場合も併記\n")
+
     results = scenarios(principal, args.monthly, args.years, rates)
     for rate, value in results.items():
         gain = value - total_invested
-        print(f"  年利 {rate*100:.0f}%: {value:,.0f}  (運用益 {gain:+,.0f})")
+        line = f"  年利 {rate*100:.0f}%: {value:,.0f}  (運用益 {gain:+,.0f})"
+        if annual_tax_saving:
+            with_tax = future_value_with_tax(
+                principal, args.monthly, rate, args.years, annual_tax_saving
+            )
+            line += f"  / 節税再投資込み {with_tax:,.0f}"
+        print(line)
 
     if args.detail:
         mid = rates[len(rates) // 2]
@@ -269,6 +286,29 @@ def _cmd_tax(args: argparse.Namespace) -> int:
 
     print(f"[NISA] 運用益が非課税。課税口座なら利益に約{TAXABLE_GAIN_RATE*100:.1f}%課税。")
     print("  例: 100万円の利益 → 課税口座で約 203,150 円の税、NISA なら 0 円。")
+    return 0
+
+
+def _cmd_rebalance(args: argparse.Namespace) -> int:
+    config = Config.load()
+    book = AccountBook(config.accounts_path)
+    if not book.holdings:
+        print("リバランスには networth(accounts.json)の登録が必要です。")
+        return 1
+    target = parse_target(args.target)
+    if abs(sum(target.values()) - 100) > 0.5:
+        print(f"注意: 目標配分の合計が {sum(target.values()):.0f}% です(100% 推奨)。", file=sys.stderr)
+    current = book.by_asset_class()
+    actions = rebalance(current, target, threshold_pct=args.threshold)
+    print(f"=== リバランス提案(目標: {args.target}) ===")
+    print(f"{'資産クラス':<10}{'現在%':>7}{'目標%':>7}{'売買':>8}{'金額':>14}")
+    for a in actions:
+        sign = "+" if a.delta > 0 else ""
+        print(
+            f"{a.asset_class:<10}{a.current_pct:>6.1f}%{a.target_pct:>6.1f}%"
+            f"{a.action:>8}{sign}{a.delta:>13,.0f}"
+        )
+    print("\n※ 売買候補の概算です。NISA枠・税・手数料・最低売買単位は別途考慮してください。")
     return 0
 
 
@@ -347,7 +387,14 @@ def main(argv: list[str] | None = None) -> int:
     p_sim.add_argument("--years", type=int, default=20, help="年数(既定 20)")
     p_sim.add_argument("--rates", default="3,5,7", help="想定年利%をカンマ区切り(既定 3,5,7)")
     p_sim.add_argument("--detail", action="store_true", help="年次推移も表示")
+    p_sim.add_argument("--taxable-income", type=float, default=None, help="課税所得(指定するとiDeCo節税の再投資も併記)")
+    p_sim.add_argument("--ideco-monthly", type=float, default=23000, help="iDeCo 月額掛金(既定 23000)")
     p_sim.set_defaults(func=_cmd_simulate)
+
+    p_reb = sub.add_parser("rebalance", help="目標配分との乖離からリバランス提案")
+    p_reb.add_argument("--target", default=DEFAULT_TARGET, help='目標配分 例: "外国株式=35,投資信託=25,..."')
+    p_reb.add_argument("--threshold", type=float, default=1.0, help="維持とみなす乖離%(既定 1.0)")
+    p_reb.set_defaults(func=_cmd_rebalance)
 
     p_imp = sub.add_parser("import-rakuten", help="楽天証券の保有一覧CSVを取り込む")
     p_imp.add_argument("csv", help="保有商品一覧 CSV のパス")
