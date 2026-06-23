@@ -20,6 +20,7 @@ from .importers import (
     parse_rakuten_holdings,
 )
 from .journal import Journal
+from .graph import related_symbols, tag_clusters
 from .knowledge import Entry, KnowledgeBase, evaluate_triggers
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
@@ -434,10 +435,11 @@ def _cmd_knowledge(args: argparse.Namespace) -> int:
         trigger = None
         if args.metric:
             trigger = {"metric": args.metric, "op": args.op, "threshold": args.threshold}
+        tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
         try:
             entry = Entry(
                 text=args.text, kind=args.kind, symbol=(args.symbol or "").upper(),
-                trigger=trigger,
+                trigger=trigger, tags=tags,
             )
         except ValueError as exc:
             print(f"エラー: {exc}", file=sys.stderr)
@@ -485,6 +487,24 @@ def _cmd_knowledge(args: argparse.Namespace) -> int:
             print("\n[関連メモ]")
             for e in notes:
                 print(f"  [{e.kind}] {e.text}")
+        return 0
+    if args.action == "graph":
+        clusters = tag_clusters(kb.load())
+        if not clusters:
+            print("タグ付きの記録がありません。`knowledge add ... --tags 半導体,AI` で付与。")
+            return 0
+        print("=== 知識グラフ(タグ別クラスタ) ===")
+        for tag, syms in clusters.items():
+            print(f"  #{tag}: {', '.join(syms)}")
+        return 0
+    if args.action == "related":
+        rel = related_symbols(kb.load(), args.symbol)
+        if not rel:
+            print(f"{args.symbol} と共通タグを持つ銘柄はありません。")
+            return 0
+        print(f"=== {args.symbol.upper()} の関連銘柄(共通タグ経由) ===")
+        for tag, syms in rel.items():
+            print(f"  #{tag}: {', '.join(syms)}")
         return 0
     return 1
 
@@ -641,6 +661,7 @@ def main(argv: list[str] | None = None) -> int:
     k_add.add_argument("--metric", choices=["price", "change_pct", "rsi", "score"], default=None)
     k_add.add_argument("--op", choices=["gt", "lt"], default="gt")
     k_add.add_argument("--threshold", type=float, default=0.0)
+    k_add.add_argument("--tags", default="", help="タグをカンマ区切り 例: 半導体,AI")
     k_add.set_defaults(func=_cmd_knowledge)
     k_list = kn_sub.add_parser("list", help="記録一覧")
     k_list.add_argument("--symbol", default="")
@@ -648,6 +669,11 @@ def main(argv: list[str] | None = None) -> int:
     k_check = kn_sub.add_parser("check", help="銘柄の指標とトリガーを照合して警告")
     k_check.add_argument("symbol")
     k_check.set_defaults(func=_cmd_knowledge)
+    k_graph = kn_sub.add_parser("graph", help="タグ別クラスタ(知識グラフ)")
+    k_graph.set_defaults(func=_cmd_knowledge)
+    k_rel = kn_sub.add_parser("related", help="共通タグの関連銘柄")
+    k_rel.add_argument("symbol")
+    k_rel.set_defaults(func=_cmd_knowledge)
 
     p_report = sub.add_parser("report", help="日次レポート(純資産・ストレス・アラート・知識警告)")
     p_report.add_argument("--notify", action="store_true", help="Slack(SLACK_WEBHOOK_URL)へ配信")

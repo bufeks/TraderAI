@@ -97,6 +97,9 @@ traderai report --notify  # Slack(SLACK_WEBHOOK_URL)へ配信
 # 知識ループ(投資テーゼ・教訓・失敗パターンを記録→自動警告)
 traderai knowledge add "高PER/高RSIで掴むと反落で痛い" --kind lesson --symbol NVDA --metric rsi --op gt --threshold 75
 traderai knowledge check NVDA   # 現在の指標とトリガーを照合して警告
+traderai knowledge add "GPU需要" --symbol NVDA --tags 半導体,AI   # タグ付け
+traderai knowledge graph        # タグ別クラスタ(知識グラフ)
+traderai knowledge related NVDA # 共通タグの関連銘柄
 
 # エージェントと対話(履歴・知識も参照して助言)
 traderai chat
@@ -177,6 +180,7 @@ traderai/
   watchlist.py     ウォッチリスト
   knowledge.py     知識ループ(テーゼ・教訓・失敗パターン→自動警告)
   report.py        日次レポート合成(Slack配信)
+  graph.py         知識グラフ(タグで銘柄を関連付け)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -211,3 +215,4 @@ pytest -q
 - [x] 知識ループ(投資テーゼ・失敗パターン→自動警告)(`knowledge.py` / `traderai knowledge`)
 - [x] 日次レポートの自動配信(`report.py` / `traderai report --notify` / cron)
 - [x] CI(GitHub Actions で pytest)
+- [x] 知識グラフ(タグで銘柄を関連付け / Neo4j不要)(`graph.py` / `knowledge graph|related`)
