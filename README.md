@@ -74,6 +74,9 @@ traderai simulate --years 21 --monthly 53000 --taxable-income 5931000 --ideco-mo
 # 円換算合計は `traderai portfolio` の末尾に表示(USD/JPY 自動換算)
 # bitFlyer 残高は公開ティッカーで円建て自動評価(`traderai balances`)
 
+# ストレステスト(相場シナリオでの純資産インパクト)
+traderai stress
+
 # 分析結果の蓄積と活用(純資産スナップショット)
 traderai journal snapshot --note "月次記録"   # 現在の純資産を時系列に記録
 traderai journal log                          # 履歴・前回比・累計変化を表示
@@ -152,6 +155,7 @@ traderai/
   tax.py           税の概算(iDeCo節税・NISA・課税口座)
   rebalance.py     リバランス提案(目標配分との乖離)
   journal.py       分析結果の蓄積(純資産スナップショット時系列)
+  stress.py        ストレステスト(相場シナリオ)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -180,3 +184,4 @@ pytest -q
 - [x] 節税を織り込んだシミュレーション(`simulate --taxable-income`)
 - [x] ふるさと納税の控除上限試算(`tax --resident-income-levy`)
 - [x] 分析結果の蓄積と活用(`journal.py` / `traderai journal`)
+- [x] ストレステスト(相場シナリオ)(`stress.py` / `traderai stress`)

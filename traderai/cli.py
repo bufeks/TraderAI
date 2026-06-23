@@ -25,6 +25,7 @@ from .portfolio import Portfolio
 from .rebalance import parse_target, rebalance
 from .risk import concentration, max_drawdown
 from .simulation import future_value_with_tax, project, scenarios
+from .stress import run_all as stress_run_all
 from .tax import (
     TAXABLE_GAIN_RATE,
     combined_marginal_rate,
@@ -321,6 +322,21 @@ def _cmd_rebalance(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_stress(args: argparse.Namespace) -> int:
+    config = Config.load()
+    book = AccountBook(config.accounts_path)
+    if not book.holdings:
+        print("ストレステストには networth(accounts.json)の登録が必要です。", file=sys.stderr)
+        return 1
+    results = stress_run_all(book.by_asset_class())
+    print("=== ストレステスト(想定シナリオ。将来予測ではありません) ===")
+    print(f"現在の評価額: {results[0].before:,.0f} 円\n")
+    print(f"{'シナリオ':<28}{'下落後':>14}{'損失':>14}{'下落率':>9}")
+    for r in results:
+        print(f"{r.scenario:<28}{r.after:>14,.0f}{r.loss:>14,.0f}{r.loss_pct:>8.1f}%")
+    return 0
+
+
 def _cmd_journal(args: argparse.Namespace) -> int:
     config = Config.load()
     journal = Journal(config.journal_path)
@@ -463,6 +479,9 @@ def main(argv: list[str] | None = None) -> int:
     j_snap.set_defaults(func=_cmd_journal)
     j_log = jr_sub.add_parser("log", help="履歴と推移を表示")
     j_log.set_defaults(func=_cmd_journal)
+
+    p_stress = sub.add_parser("stress", help="相場シナリオでのストレステスト")
+    p_stress.set_defaults(func=_cmd_stress)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
