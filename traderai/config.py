@@ -25,6 +25,16 @@ class Config:
     portfolio_path: Path
     base_currency: str
 
+    @property
+    def accounts_path(self) -> Path:
+        """手動評価額(iDeCo・投信など)の保存先。"""
+        return self.portfolio_path.with_name("accounts.json")
+
+    @property
+    def alerts_path(self) -> Path:
+        """アラートルールの保存先。"""
+        return self.portfolio_path.with_name("alerts.json")
+
     @classmethod
     def load(cls) -> "Config":
         portfolio_path = os.environ.get("TRADERAI_PORTFOLIO_PATH")

@@ -39,8 +39,28 @@ traderai analyze NVDA --period 1y
 # 保有ポートフォリオと損益
 traderai portfolio
 
+# iDeCo・投信を含む口座横断の純資産集計
+traderai networth
+
+# bitFlyer 残高(要 API キー)
+traderai balances
+
+# 価格・指標アラート
+traderai alerts add 9432.T --metric price --op gt --threshold 150.49 --note "NTT 取得単価回復"
+traderai alerts list
+traderai alerts check     # 条件成立を Slack(SLACK_WEBHOOK_URL)へ通知
+
 # エージェントと対話
 traderai chat
+```
+
+### iDeCo・投資信託など(ライブ株価が無い資産)
+
+`examples/seed_accounts.py` に取得金額・評価額を入力して実行すると、
+`traderai networth` で資産クラス別・口座別に集計できます。
+
+```bash
+python examples/seed_accounts.py
 ```
 
 ### ポートフォリオの登録
@@ -94,8 +114,10 @@ pytest -q
 
 ## ロードマップ(案)
 
-- [ ] 通貨換算(USD/JPY)を加味した資産横断の合計評価
-- [ ] 価格・指標トリガーによる通知(メール / Slack)
+- [x] iDeCo・投信を含む口座横断の純資産集計(`accounts.py` / `traderai networth`)
+- [x] 価格・指標トリガーによる通知(Slack)(`alerts.py` / `traderai alerts`)
+- [x] bitFlyer 残高のエージェントツール化(`traderai balances` / chat ツール)
+- [ ] 通貨換算(USD/JPY)を加味した自動合算
 - [ ] ポートフォリオのリスク分析(相関・集中度・ドローダウン)
-- [ ] bitFlyer 残高のエージェントツール化
+- [ ] 積立(楽天投信 月3万 + iDeCo 月2.4万)を踏まえた将来資産シミュレーション
 - [ ] 楽天証券 CSV の自動取込フロー

@@ -12,6 +12,7 @@ import json
 import anthropic
 from anthropic import beta_tool
 
+from .accounts import AccountBook
 from .analysis import analyze as analyze_history
 from .config import Config
 from .market import MarketDataError, get_history, get_quote
@@ -35,7 +36,7 @@ SYSTEM_PROMPT = """\
 """
 
 
-def build_tools(portfolio: Portfolio):
+def build_tools(portfolio: Portfolio, config: Config | None = None):
     """ポートフォリオに束ねたツール群を生成して返す。"""
 
     @beta_tool
@@ -144,7 +145,55 @@ def build_tools(portfolio: Portfolio):
             ensure_ascii=False,
         )
 
-    return [quote, technicals, portfolio_summary, record_trade]
+    @beta_tool
+    def net_worth() -> str:
+        """iDeCo・投資信託・現金など手動評価額の資産を含む、口座横断の純資産集計を取得する。"""
+        if config is None:
+            return json.dumps({"error": "設定が未提供のため集計できません。"}, ensure_ascii=False)
+        book = AccountBook(config.accounts_path)
+        if not book.holdings:
+            return json.dumps(
+                {"holdings": [], "note": "手動評価額の登録はありません。"},
+                ensure_ascii=False,
+            )
+        return json.dumps(
+            {
+                "total_value": round(book.total_value(), 2),
+                "total_cost": round(book.total_cost(), 2),
+                "total_pl": round(book.total_pl(), 2),
+                "by_asset_class": {k: round(v, 2) for k, v in book.by_asset_class().items()},
+                "by_account": {k: round(v, 2) for k, v in book.by_account().items()},
+                "allocation_pct": book.allocation(),
+            },
+            ensure_ascii=False,
+        )
+
+    tools = [quote, technicals, portfolio_summary, record_trade, net_worth]
+
+    # bitFlyer の API キーが設定されている場合のみ残高取得ツールを追加
+    import os
+
+    if os.environ.get("BITFLYER_API_KEY") and os.environ.get("BITFLYER_API_SECRET"):
+
+        @beta_tool
+        def bitflyer_balances() -> str:
+            """bitFlyer 口座の暗号資産残高(数量)を取得する(読み取り専用)。"""
+            from .brokers.bitflyer import BitFlyerBroker
+            from .brokers.base import BrokerError
+
+            try:
+                broker = BitFlyerBroker()
+                balances = broker.get_balances()
+            except BrokerError as exc:
+                return f"エラー: {exc}"
+            return json.dumps(
+                [{"asset": b.asset, "amount": b.amount} for b in balances],
+                ensure_ascii=False,
+            )
+
+        tools.append(bitflyer_balances)
+
+    return tools
 
 
 class TraderAgent:
@@ -158,7 +207,7 @@ class TraderAgent:
         self.config = config
         self.portfolio = portfolio
         self.client = anthropic.Anthropic(api_key=config.anthropic_api_key)
-        self.tools = build_tools(portfolio)
+        self.tools = build_tools(portfolio, config)
         self.messages: list[dict] = []
 
     def ask(self, user_message: str) -> str:
