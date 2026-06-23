@@ -1,5 +1,7 @@
 # TraderAI
 
+![CI](https://github.com/bufeks/TraderAI/actions/workflows/ci.yml/badge.svg)
+
 Claude を中核にした、**株式運用・資産形成サポートエージェント**です。
 日本株・米国株・暗号資産・ETF を対象に、市場データの取得・テクニカル分析・
 ポートフォリオ管理・対話による助言を行います。
