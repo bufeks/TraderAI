@@ -168,7 +168,17 @@ def build_tools(portfolio: Portfolio, config: Config | None = None):
             ensure_ascii=False,
         )
 
-    tools = [quote, technicals, portfolio_summary, record_trade, net_worth]
+    @beta_tool
+    def history() -> str:
+        """蓄積された純資産スナップショットの推移(前回比・累計変化)を取得する。"""
+        if config is None:
+            return json.dumps({"error": "設定が未提供です。"}, ensure_ascii=False)
+        from .journal import Journal
+
+        trend = Journal(config.journal_path).trend()
+        return json.dumps(trend, ensure_ascii=False)
+
+    tools = [quote, technicals, portfolio_summary, record_trade, net_worth, history]
 
     # bitFlyer の API キーが設定されている場合のみ残高取得ツールを追加
     import os

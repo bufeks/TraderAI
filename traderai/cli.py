@@ -19,6 +19,7 @@ from .importers import (
     import_to_portfolio,
     parse_rakuten_holdings,
 )
+from .journal import Journal
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .rebalance import parse_target, rebalance
@@ -320,6 +321,35 @@ def _cmd_rebalance(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_journal(args: argparse.Namespace) -> int:
+    config = Config.load()
+    journal = Journal(config.journal_path)
+    if args.action == "snapshot":
+        book = AccountBook(config.accounts_path)
+        if not book.holdings:
+            print("スナップショットには networth(accounts.json)の登録が必要です。", file=sys.stderr)
+            return 1
+        snap = journal.record(book, note=args.note or "")
+        print(f"記録: {snap.timestamp} 評価額 {snap.total_value:,.0f} 円")
+        return 0
+    if args.action == "log":
+        snaps = journal.load()
+        if not snaps:
+            print("履歴はまだありません。`traderai journal snapshot` で記録してください。")
+            return 0
+        prev = None
+        for s in snaps:
+            date = s.timestamp[:10]
+            delta = f" (前回比 {s.total_value - prev:+,.0f})" if prev is not None else ""
+            print(f"{date}: {s.total_value:,.0f} 円{delta}  {s.note}")
+            prev = s.total_value
+        t = journal.trend()
+        if t.get("change_pct") is not None:
+            print(f"\n累計変化: {t['change']:+,.0f} 円 ({t['change_pct']:+.2f}%)")
+        return 0
+    return 1
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -425,6 +455,14 @@ def main(argv: list[str] | None = None) -> int:
     p_tax.add_argument("--resident-rate", type=float, default=0.10, help="住民税率(既定 0.10)")
     p_tax.add_argument("--resident-income-levy", type=float, default=None, help="住民税所得割額(指定でふるさと納税上限を試算)")
     p_tax.set_defaults(func=_cmd_tax)
+
+    p_jr = sub.add_parser("journal", help="分析結果の蓄積と活用(純資産スナップショット)")
+    jr_sub = p_jr.add_subparsers(dest="action", required=True)
+    j_snap = jr_sub.add_parser("snapshot", help="現在の純資産を記録")
+    j_snap.add_argument("--note", default="")
+    j_snap.set_defaults(func=_cmd_journal)
+    j_log = jr_sub.add_parser("log", help="履歴と推移を表示")
+    j_log.set_defaults(func=_cmd_journal)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
