@@ -27,6 +27,7 @@ from .risk import concentration, max_drawdown
 from .screener import fetch_metrics, value_score
 from .simulation import future_value_with_tax, project, scenarios
 from .stress import run_all as stress_run_all
+from .watchlist import Watchlist
 from .tax import (
     TAXABLE_GAIN_RATE,
     combined_marginal_rate,
@@ -340,6 +341,46 @@ def _cmd_screen(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_watch(args: argparse.Namespace) -> int:
+    config = Config.load()
+    wl = Watchlist(config.watchlist_path)
+    if args.action == "add":
+        try:
+            item = wl.add(args.symbol, args.note or "")
+        except ValueError as exc:
+            print(f"エラー: {exc}", file=sys.stderr)
+            return 1
+        print(f"追加: {item.symbol} {item.note}")
+        return 0
+    if args.action == "remove":
+        ok = wl.remove(args.symbol)
+        print("削除しました。" if ok else "見つかりませんでした。")
+        return 0 if ok else 1
+    if args.action == "list":
+        if not wl.items:
+            print("ウォッチリストは空です。`traderai watch add SYMBOL` で追加。")
+            return 0
+        print("=== ウォッチリスト(現在値+バリュースコア) ===")
+        for item in wl.items:
+            line = item.symbol
+            try:
+                q = get_quote(item.symbol)
+                chg = f"{q.change_pct:+.2f}%" if q.change_pct is not None else "N/A"
+                line += f": {q.price:,.2f} {q.currency} ({chg})"
+            except MarketDataError:
+                line += ": 価格取得失敗"
+            try:
+                score = value_score(item.symbol, fetch_metrics(item.symbol)).total
+                line += f" / スコア {score}点"
+            except MarketDataError:
+                pass
+            if item.note:
+                line += f"  — {item.note}"
+            print(line)
+        return 0
+    return 1
+
+
 def _cmd_stress(args: argparse.Namespace) -> int:
     config = Config.load()
     book = AccountBook(config.accounts_path)
@@ -504,6 +545,18 @@ def main(argv: list[str] | None = None) -> int:
     p_screen = sub.add_parser("screen", help="バリュースコアで銘柄を採点")
     p_screen.add_argument("symbols", nargs="+", help="ティッカー(複数可)")
     p_screen.set_defaults(func=_cmd_screen)
+
+    p_watch = sub.add_parser("watch", help="ウォッチリスト")
+    watch_sub = p_watch.add_subparsers(dest="action", required=True)
+    w_add = watch_sub.add_parser("add", help="銘柄を追加")
+    w_add.add_argument("symbol")
+    w_add.add_argument("--note", default="")
+    w_add.set_defaults(func=_cmd_watch)
+    w_rm = watch_sub.add_parser("remove", help="銘柄を削除")
+    w_rm.add_argument("symbol")
+    w_rm.set_defaults(func=_cmd_watch)
+    w_list = watch_sub.add_parser("list", help="一覧(現在値+スコア)")
+    w_list.set_defaults(func=_cmd_watch)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)

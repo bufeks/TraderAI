@@ -80,6 +80,10 @@ traderai stress
 # バリュースコアで銘柄を採点(PER/PBR/配当/ROE/成長を100点満点)
 traderai screen 7203.T 8058.T AAPL
 
+# ウォッチリスト(登録銘柄を現在値+スコアで一覧)
+traderai watch add 8058.T --note "三菱商事 気になる"
+traderai watch list
+
 # 分析結果の蓄積と活用(純資産スナップショット)
 traderai journal snapshot --note "月次記録"   # 現在の純資産を時系列に記録
 traderai journal log                          # 履歴・前回比・累計変化を表示
@@ -160,6 +164,7 @@ traderai/
   journal.py       分析結果の蓄積(純資産スナップショット時系列)
   stress.py        ストレステスト(相場シナリオ)
   screener.py      バリュースコア・スクリーナー
+  watchlist.py     ウォッチリスト
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -190,3 +195,4 @@ pytest -q
 - [x] 分析結果の蓄積と活用(`journal.py` / `traderai journal`)
 - [x] ストレステスト(相場シナリオ)(`stress.py` / `traderai stress`)
 - [x] バリュースコア・スクリーナー(`screener.py` / `traderai screen`)
+- [x] ウォッチリスト(`watchlist.py` / `traderai watch`)
