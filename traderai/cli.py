@@ -14,6 +14,7 @@ from .analysis import analyze as analyze_history
 from .config import Config
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
+from .simulation import project, scenarios
 
 
 def _cmd_quote(args: argparse.Namespace) -> int:
@@ -133,6 +134,43 @@ def _cmd_alerts(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_simulate(args: argparse.Namespace) -> int:
+    config = Config.load()
+    principal = args.principal
+    if principal is None:
+        # 未指定なら手動評価額(accounts.json)の合計を元本に使う
+        book = AccountBook(config.accounts_path)
+        principal = book.total_value()
+        if principal == 0:
+            print(
+                "元本が不明です。--principal で指定するか、先に networth を登録してください。",
+                file=sys.stderr,
+            )
+            return 1
+
+    rates = tuple(float(x) / 100 for x in args.rates.split(","))
+    cur = config.base_currency
+    print(f"=== 将来資産シミュレーション({cur}) ===")
+    print(f"初期元本: {principal:,.0f} / 毎月積立: {args.monthly:,.0f} / 期間: {args.years}年")
+    print(f"想定年利シナリオ: {', '.join(f'{r*100:.0f}%' for r in rates)}\n")
+
+    total_invested = principal + args.monthly * 12 * args.years
+    print(f"投資元本合計(積立含む): {total_invested:,.0f}\n")
+
+    results = scenarios(principal, args.monthly, args.years, rates)
+    for rate, value in results.items():
+        gain = value - total_invested
+        print(f"  年利 {rate*100:.0f}%: {value:,.0f}  (運用益 {gain:+,.0f})")
+
+    if args.detail:
+        mid = rates[len(rates) // 2]
+        print(f"\n[年次推移 / 年利 {mid*100:.0f}%]")
+        for p in project(principal, args.monthly, mid, args.years):
+            if p.year % 5 == 0 or p.year == args.years:
+                print(f"  {p.year:>2}年目: 評価 {p.value:,.0f} / 元本 {p.invested:,.0f}")
+    return 0
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -201,6 +239,14 @@ def main(argv: list[str] | None = None) -> int:
     a_list.set_defaults(func=_cmd_alerts)
     a_check = alert_sub.add_parser("check", help="アラートを評価して通知")
     a_check.set_defaults(func=_cmd_alerts)
+
+    p_sim = sub.add_parser("simulate", help="積立による将来資産シミュレーション")
+    p_sim.add_argument("--principal", type=float, default=None, help="初期元本(未指定なら networth 合計)")
+    p_sim.add_argument("--monthly", type=float, default=54000, help="毎月の積立額(既定 54000)")
+    p_sim.add_argument("--years", type=int, default=20, help="年数(既定 20)")
+    p_sim.add_argument("--rates", default="3,5,7", help="想定年利%をカンマ区切り(既定 3,5,7)")
+    p_sim.add_argument("--detail", action="store_true", help="年次推移も表示")
+    p_sim.set_defaults(func=_cmd_simulate)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
