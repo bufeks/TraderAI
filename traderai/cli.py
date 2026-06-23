@@ -12,6 +12,12 @@ from .accounts import AccountBook
 from .alerts import AlertRule, AlertStore, format_hit, notify
 from .analysis import analyze as analyze_history
 from .config import Config
+from .importers import (
+    ImportError_,
+    import_to_accounts,
+    import_to_portfolio,
+    parse_rakuten_holdings,
+)
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .simulation import project, scenarios
@@ -134,6 +140,25 @@ def _cmd_alerts(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_import_rakuten(args: argparse.Namespace) -> int:
+    config = Config.load()
+    try:
+        rows = parse_rakuten_holdings(args.csv)
+    except ImportError_ as exc:
+        print(f"エラー: {exc}", file=sys.stderr)
+        return 1
+    print(f"解析: {len(rows)} 件の保有を検出")
+    if args.into == "portfolio":
+        pf = Portfolio(config.portfolio_path)
+        n = import_to_portfolio(rows, pf)
+        print(f"Portfolio に {n} 件を取り込みました → {config.portfolio_path}")
+    else:
+        book = AccountBook(config.accounts_path)
+        n = import_to_accounts(rows, book, asset_class=args.asset_class)
+        print(f"AccountBook に {n} 件を取り込みました → {config.accounts_path}")
+    return 0
+
+
 def _cmd_simulate(args: argparse.Namespace) -> int:
     config = Config.load()
     principal = args.principal
@@ -247,6 +272,15 @@ def main(argv: list[str] | None = None) -> int:
     p_sim.add_argument("--rates", default="3,5,7", help="想定年利%をカンマ区切り(既定 3,5,7)")
     p_sim.add_argument("--detail", action="store_true", help="年次推移も表示")
     p_sim.set_defaults(func=_cmd_simulate)
+
+    p_imp = sub.add_parser("import-rakuten", help="楽天証券の保有一覧CSVを取り込む")
+    p_imp.add_argument("csv", help="保有商品一覧 CSV のパス")
+    p_imp.add_argument(
+        "--into", choices=["portfolio", "accounts"], default="portfolio",
+        help="取込先(個別株=portfolio / 投信など=accounts)",
+    )
+    p_imp.add_argument("--asset-class", default="投資信託", help="accounts 取込時の資産クラス")
+    p_imp.set_defaults(func=_cmd_import_rakuten)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
