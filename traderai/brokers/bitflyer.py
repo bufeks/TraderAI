@@ -26,6 +26,41 @@ from .base import Balance, Broker, BrokerError, Order
 API_BASE = "https://api.bitflyer.com"
 
 
+def public_ticker(product_code: str) -> float:
+    """公開ティッカー(認証不要)から最終取引価格(ltp)を返す。
+
+    product_code 例: "BTC_JPY", "ETH_JPY"。
+    """
+    url = f"{API_BASE}/v1/ticker?product_code={product_code}"
+    try:
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        return float(data["ltp"])
+    except Exception as exc:  # noqa: BLE001
+        raise BrokerError(f"bitFlyer ティッカー取得に失敗({product_code}): {exc}") from exc
+
+
+def value_balances(
+    balances: list[Balance], ticker_fn=public_ticker
+) -> list[tuple[str, float, float | None]]:
+    """残高リストを円建て評価する。
+
+    返り値: (資産, 数量, 円評価額 or None)。価格取得に失敗した銘柄は None。
+    ticker_fn を差し替えることでテスト可能。
+    """
+    out: list[tuple[str, float, float | None]] = []
+    for b in balances:
+        if b.asset.upper() == "JPY":
+            out.append((b.asset, b.amount, b.amount))
+            continue
+        try:
+            ltp = ticker_fn(f"{b.asset.upper()}_JPY")
+            out.append((b.asset, b.amount, b.amount * ltp))
+        except BrokerError:
+            out.append((b.asset, b.amount, None))
+    return out
+
+
 class BitFlyerBroker(Broker):
     is_live = True
 
@@ -75,6 +110,10 @@ class BitFlyerBroker(Broker):
             for item in data
             if float(item.get("amount", 0)) > 0
         ]
+
+    def get_balances_valued(self) -> list[tuple[str, float, float | None]]:
+        """残高を公開ティッカーで円建て評価して返す((資産, 数量, 円評価額))。"""
+        return value_balances(self.get_balances())
 
     def place_order(
         self, symbol: str, side: str, quantity: float, price: float | None = None

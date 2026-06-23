@@ -143,13 +143,19 @@ def _cmd_balances(args: argparse.Namespace) -> int:
 
     try:
         broker = BitFlyerBroker()
-        balances = broker.get_balances()
+        valued = broker.get_balances_valued()
     except BrokerError as exc:
         print(f"エラー: {exc}", file=sys.stderr)
         return 1
-    print("=== bitFlyer 残高 ===")
-    for b in balances:
-        print(f"  {b.asset}: {b.amount}")
+    print("=== bitFlyer 残高(公開ティッカーで円建て自動評価) ===")
+    total = 0.0
+    for asset, amount, jpy in valued:
+        if jpy is None:
+            print(f"  {asset}: {amount} (円評価取得失敗)")
+        else:
+            print(f"  {asset}: {amount} ≒ {jpy:,.0f} 円")
+            total += jpy
+    print(f"\n合計: {total:,.0f} 円")
     return 0
 
 
