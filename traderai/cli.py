@@ -24,6 +24,7 @@ from .knowledge import Entry, KnowledgeBase, evaluate_triggers
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .rebalance import parse_target, rebalance
+from .report import build_report
 from .risk import concentration, max_drawdown
 from .screener import fetch_metrics, value_score
 from .simulation import future_value_with_tax, project, scenarios
@@ -488,6 +489,16 @@ def _cmd_knowledge(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    config = Config.load()
+    text = build_report(config)
+    if args.notify:
+        notify([text])  # SLACK_WEBHOOK_URL があれば Slack、無ければ標準出力
+    else:
+        print(text)
+    return 0
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -637,6 +648,10 @@ def main(argv: list[str] | None = None) -> int:
     k_check = kn_sub.add_parser("check", help="銘柄の指標とトリガーを照合して警告")
     k_check.add_argument("symbol")
     k_check.set_defaults(func=_cmd_knowledge)
+
+    p_report = sub.add_parser("report", help="日次レポート(純資産・ストレス・アラート・知識警告)")
+    p_report.add_argument("--notify", action="store_true", help="Slack(SLACK_WEBHOOK_URL)へ配信")
+    p_report.set_defaults(func=_cmd_report)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
