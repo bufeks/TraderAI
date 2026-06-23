@@ -42,6 +42,14 @@ if ! "$PY" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; then
   fi
 fi
 
+# 初回のみ:将来予測に使う毎月の積立額を GUI で尋ねて保存(ターミナル不要)。
+if ! "$PY" -m traderai.cli config 2>/dev/null | grep -q "monthly_contribution"; then
+  AMT=$(osascript -e 'set r to text returned of (display dialog "毎月の積立額(円)を入力してください。\n将来予測グラフに使います(後で変更可・0でもOK)。" default answer "0" with title "TraderAI 初期設定")' 2>/dev/null)
+  if [ -n "$AMT" ]; then
+    "$PY" -m traderai.cli config --monthly "$AMT" >/dev/null 2>&1
+  fi
+fi
+
 # 起動のたびに純資産スナップショットを記録(推移グラフ用、失敗は無視)。
 "$PY" -m traderai.cli journal snapshot --note auto >/dev/null 2>&1
 

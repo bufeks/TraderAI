@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
@@ -49,6 +50,22 @@ class Config:
     def knowledge_path(self) -> Path:
         """知識ループ(テーゼ・教訓・警告)の保存先。"""
         return self.portfolio_path.with_name("knowledge.jsonl")
+
+    @property
+    def settings_path(self) -> Path:
+        """ユーザー設定(積立額など)の保存先。"""
+        return self.portfolio_path.with_name("settings.json")
+
+    def load_settings(self) -> dict:
+        if self.settings_path.exists():
+            return json.loads(self.settings_path.read_text(encoding="utf-8"))
+        return {}
+
+    def save_settings(self, settings: dict) -> None:
+        self.settings_path.parent.mkdir(parents=True, exist_ok=True)
+        self.settings_path.write_text(
+            json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
 
     @classmethod
     def load(cls) -> "Config":
