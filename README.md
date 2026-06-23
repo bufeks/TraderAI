@@ -50,6 +50,10 @@ traderai alerts add 9432.T --metric price --op gt --threshold 150.49 --note "NTT
 traderai alerts list
 traderai alerts check     # 条件成立を Slack(SLACK_WEBHOOK_URL)へ通知
 
+# 将来資産シミュレーション(積立)
+traderai simulate --years 21 --monthly 54000 --rates 3,5,7 --detail
+# --principal 未指定なら networth(accounts.json)の合計を元本に使用
+
 # エージェントと対話
 traderai chat
 ```
@@ -117,7 +121,7 @@ pytest -q
 - [x] iDeCo・投信を含む口座横断の純資産集計(`accounts.py` / `traderai networth`)
 - [x] 価格・指標トリガーによる通知(Slack)(`alerts.py` / `traderai alerts`)
 - [x] bitFlyer 残高のエージェントツール化(`traderai balances` / chat ツール)
+- [x] 積立を踏まえた将来資産シミュレーション(`simulation.py` / `traderai simulate`)
 - [ ] 通貨換算(USD/JPY)を加味した自動合算
 - [ ] ポートフォリオのリスク分析(相関・集中度・ドローダウン)
-- [ ] 積立(楽天投信 月3万 + iDeCo 月2.4万)を踏まえた将来資産シミュレーション
 - [ ] 楽天証券 CSV の自動取込フロー
