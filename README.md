@@ -58,6 +58,12 @@ traderai simulate --years 21 --monthly 53000 --rates 3,5,7 --detail
 traderai import-rakuten 保有商品一覧.csv --into portfolio          # 個別株
 traderai import-rakuten 投信一覧.csv --into accounts --asset-class 投資信託
 
+# リスク分析(集中度 / 最大ドローダウン)
+traderai risk                              # accounts.json の集中度(HHI・実効銘柄数)
+traderai risk --drawdown 7011.T --period 2y   # 最大ドローダウン
+
+# 円換算合計は `traderai portfolio` の末尾に表示(USD/JPY 自動換算)
+
 # エージェントと対話
 traderai chat
 ```
@@ -111,6 +117,8 @@ traderai/
   alerts.py        価格・指標アラート(Slack 通知)
   simulation.py    積立による将来資産シミュレーション
   importers.py     楽天証券 CSV 取込
+  fx.py            為替換算(USD/JPY)
+  risk.py          リスク分析(集中度・相関・DD)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -130,6 +138,6 @@ pytest -q
 - [x] 価格・指標トリガーによる通知(Slack)(`alerts.py` / `traderai alerts`)
 - [x] bitFlyer 残高のエージェントツール化(`traderai balances` / chat ツール)
 - [x] 積立を踏まえた将来資産シミュレーション(`simulation.py` / `traderai simulate`)
-- [ ] 通貨換算(USD/JPY)を加味した自動合算
-- [ ] ポートフォリオのリスク分析(相関・集中度・ドローダウン)
+- [x] 通貨換算(USD/JPY)を加味した自動合算(`fx.py` / `portfolio` 円換算合計)
+- [x] ポートフォリオのリスク分析(集中度・相関・ドローダウン)(`risk.py` / `traderai risk`)
 - [x] 楽天証券 CSV の自動取込フロー(`importers.py` / `traderai import-rakuten`)

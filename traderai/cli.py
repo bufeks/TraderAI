@@ -12,6 +12,7 @@ from .accounts import AccountBook
 from .alerts import AlertRule, AlertStore, format_hit, notify
 from .analysis import analyze as analyze_history
 from .config import Config
+from .fx import convert
 from .importers import (
     ImportError_,
     import_to_accounts,
@@ -20,6 +21,7 @@ from .importers import (
 )
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
+from .risk import concentration, max_drawdown
 from .simulation import project, scenarios
 
 
@@ -58,17 +60,59 @@ def _cmd_portfolio(args: argparse.Namespace) -> int:
         print("保有ポジションはありません。")
         return 0
     print(f"=== ポートフォリオ ({config.portfolio_path}) ===")
+    total_jpy = 0.0
+    fx_failed = False
     for pos in positions:
         try:
-            price = get_quote(pos.symbol).price
+            q = get_quote(pos.symbol)
+            price = q.price
             pl = pos.unrealized_pl(price)
             pl_pct = pos.unrealized_pl_pct(price)
             print(
                 f"{pos.symbol}: {pos.quantity} 株 @ 平均 {pos.avg_cost:,.2f} / "
-                f"現在 {price:,.2f} / 含み損益 {pl:+,.2f} ({pl_pct:+.2f}%)"
+                f"現在 {price:,.2f} {q.currency} / 含み損益 {pl:+,.2f} ({pl_pct:+.2f}%)"
             )
+            try:
+                total_jpy += convert(pos.market_value(price), q.currency, "JPY")
+            except MarketDataError:
+                fx_failed = True
         except MarketDataError:
             print(f"{pos.symbol}: {pos.quantity} 株 @ 平均 {pos.avg_cost:,.2f} (現在値取得失敗)")
+    suffix = "(一部為替取得失敗)" if fx_failed else ""
+    print(f"\n円換算 評価額合計: {total_jpy:,.0f} JPY {suffix}")
+    return 0
+
+
+def _cmd_risk(args: argparse.Namespace) -> int:
+    config = Config.load()
+    if args.drawdown:
+        try:
+            hist = get_history(args.drawdown, period=args.period)
+        except MarketDataError as exc:
+            print(f"エラー: {exc}", file=sys.stderr)
+            return 1
+        mdd = max_drawdown(hist["Close"])
+        print(f"{args.drawdown}: 最大ドローダウン({args.period}) {mdd:.2f}%")
+        return 0
+
+    book = AccountBook(config.accounts_path)
+    if not book.holdings:
+        print("リスク分析には networth(accounts.json)の登録が必要です。")
+        return 0
+
+    # 銘柄(保有)単位の集中度
+    by_holding = {h.name: h.value for h in book.holdings}
+    con = concentration(by_holding)
+    print("=== 集中度(保有単位) ===")
+    print(f"HHI: {con.hhi:.3f} / 実効銘柄数: {con.effective_n:.1f}")
+    print(f"最大構成比: {con.top_name} = {con.top_weight:.1f}%\n")
+
+    # 資産クラス単位の集中度
+    con_cls = concentration(book.by_asset_class())
+    print("=== 集中度(資産クラス単位) ===")
+    print(f"HHI: {con_cls.hhi:.3f} / 実効クラス数: {con_cls.effective_n:.1f}")
+    for cls, w in con_cls.weights.items():
+        print(f"  {cls}: {w:.1f}%")
     return 0
 
 
@@ -281,6 +325,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_imp.add_argument("--asset-class", default="投資信託", help="accounts 取込時の資産クラス")
     p_imp.set_defaults(func=_cmd_import_rakuten)
+
+    p_risk = sub.add_parser("risk", help="集中度・最大ドローダウンのリスク分析")
+    p_risk.add_argument("--drawdown", help="指定シンボルの最大ドローダウンを計算")
+    p_risk.add_argument("--period", default="2y", help="ドローダウン計算の期間")
+    p_risk.set_defaults(func=_cmd_risk)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
