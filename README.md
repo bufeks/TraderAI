@@ -31,13 +31,19 @@ pip install -e ".[dev]"
 cp .env.example .env   # ANTHROPIC_API_KEY を設定(chat 用。他コマンドは不要)
 ```
 
-## ダブルクリックで起動(macOS)
+## アプリとして起動(macOS)
 
-ターミナルを使わずにダッシュボードを開けます。Finder で **`TraderAI-Dashboard.command`** をダブルクリックすると、サーバが起動し既定ブラウザで http://127.0.0.1:8787 が開きます(停止は開いた Terminal で `Ctrl-C`)。
+ターミナル不要。2通りあります。
 
-- 初回だけ Gatekeeper の確認が出たら、右クリック →「開く」を選択。
-- Dock やデスクトップに置きたい場合は、このファイルのエイリアス(右クリック→「エイリアスを作成」)を移動。
-- 事前に一度 `pip install -e .` と `python my_portfolio_seed.py`(データ反映)を済ませておくと、起動するだけで最新のグラフが見られます。
+**A) `.app`(おすすめ・Terminal が出ない)**
+Finder で **`TraderAI.app`** をダブルクリック。Dock にアイコンが出て、既定ブラウザで http://127.0.0.1:8787 が自動で開きます。終了は **Dock アイコンを右クリック →「終了」**。
+- 初回だけ Gatekeeper の確認が出たら、右クリック →「開く」を選択(以後はダブルクリックでOK)。
+- `/Applications` や Dock に置いても動きます(リポジトリが見つからなければ `~/TraderAI` を自動探索)。
+
+**B) `.command`(小さな Terminal が開く簡易版)**
+Finder で **`TraderAI-Dashboard.command`** をダブルクリック。停止は開いた Terminal で `Ctrl-C`。
+
+どちらも事前に一度 `pip install -e .` と `python my_portfolio_seed.py`(データ反映)を済ませておくと、起動するだけで最新グラフが見られます。
 
 ## 使い方
 
