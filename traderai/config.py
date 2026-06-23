@@ -45,6 +45,11 @@ class Config:
         """ウォッチリストの保存先。"""
         return self.portfolio_path.with_name("watchlist.json")
 
+    @property
+    def knowledge_path(self) -> Path:
+        """知識ループ(テーゼ・教訓・警告)の保存先。"""
+        return self.portfolio_path.with_name("knowledge.jsonl")
+
     @classmethod
     def load(cls) -> "Config":
         portfolio_path = os.environ.get("TRADERAI_PORTFOLIO_PATH")

@@ -20,6 +20,7 @@ from .importers import (
     parse_rakuten_holdings,
 )
 from .journal import Journal
+from .knowledge import Entry, KnowledgeBase, evaluate_triggers
 from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .rebalance import parse_target, rebalance
@@ -425,6 +426,68 @@ def _cmd_journal(args: argparse.Namespace) -> int:
     return 1
 
 
+def _cmd_knowledge(args: argparse.Namespace) -> int:
+    config = Config.load()
+    kb = KnowledgeBase(config.knowledge_path)
+    if args.action == "add":
+        trigger = None
+        if args.metric:
+            trigger = {"metric": args.metric, "op": args.op, "threshold": args.threshold}
+        try:
+            entry = Entry(
+                text=args.text, kind=args.kind, symbol=(args.symbol or "").upper(),
+                trigger=trigger,
+            )
+        except ValueError as exc:
+            print(f"エラー: {exc}", file=sys.stderr)
+            return 1
+        kb.add(entry)
+        print(f"記録: [{entry.kind}] {entry.symbol or '全体'} — {entry.text}")
+        return 0
+    if args.action == "list":
+        entries = kb.for_symbol(args.symbol) if args.symbol else kb.load()
+        if not entries:
+            print("記録はありません。")
+            return 0
+        for e in entries:
+            trg = f" (条件 {e.trigger['metric']} {e.trigger['op']} {e.trigger['threshold']})" if e.trigger else ""
+            print(f"[{e.kind}] {e.symbol or '全体'}: {e.text}{trg}")
+        return 0
+    if args.action == "check":
+        symbol = args.symbol
+        observed: dict[str, float] = {}
+        try:
+            q = get_quote(symbol)
+            observed["price"] = q.price
+            if q.change_pct is not None:
+                observed["change_pct"] = q.change_pct
+        except MarketDataError:
+            pass
+        try:
+            observed["rsi"] = analyze_history(symbol, get_history(symbol, period="6mo")).rsi_14
+        except MarketDataError:
+            pass
+        try:
+            observed["score"] = value_score(symbol, fetch_metrics(symbol)).total
+        except MarketDataError:
+            pass
+        entries = kb.for_symbol(symbol)
+        hits = evaluate_triggers(entries, observed)
+        print(f"=== {symbol} の知識チェック ===")
+        if hits:
+            for e in hits:
+                print(f"⚠️ [{e.kind}] {e.text} (条件成立: {e.trigger})")
+        else:
+            print("トリガー成立した警告はありません。")
+        notes = [e for e in entries if not e.trigger]
+        if notes:
+            print("\n[関連メモ]")
+            for e in notes:
+                print(f"  [{e.kind}] {e.text}")
+        return 0
+    return 1
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -557,6 +620,23 @@ def main(argv: list[str] | None = None) -> int:
     w_rm.set_defaults(func=_cmd_watch)
     w_list = watch_sub.add_parser("list", help="一覧(現在値+スコア)")
     w_list.set_defaults(func=_cmd_watch)
+
+    p_kn = sub.add_parser("knowledge", help="知識ループ(テーゼ・教訓・失敗パターン)")
+    kn_sub = p_kn.add_subparsers(dest="action", required=True)
+    k_add = kn_sub.add_parser("add", help="記録を追加")
+    k_add.add_argument("text")
+    k_add.add_argument("--kind", choices=["thesis", "lesson", "warning"], default="thesis")
+    k_add.add_argument("--symbol", default="")
+    k_add.add_argument("--metric", choices=["price", "change_pct", "rsi", "score"], default=None)
+    k_add.add_argument("--op", choices=["gt", "lt"], default="gt")
+    k_add.add_argument("--threshold", type=float, default=0.0)
+    k_add.set_defaults(func=_cmd_knowledge)
+    k_list = kn_sub.add_parser("list", help="記録一覧")
+    k_list.add_argument("--symbol", default="")
+    k_list.set_defaults(func=_cmd_knowledge)
+    k_check = kn_sub.add_parser("check", help="銘柄の指標とトリガーを照合して警告")
+    k_check.add_argument("symbol")
+    k_check.set_defaults(func=_cmd_knowledge)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)

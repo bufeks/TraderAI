@@ -178,7 +178,27 @@ def build_tools(portfolio: Portfolio, config: Config | None = None):
         trend = Journal(config.journal_path).trend()
         return json.dumps(trend, ensure_ascii=False)
 
-    tools = [quote, technicals, portfolio_summary, record_trade, net_worth, history]
+    @beta_tool
+    def knowledge(symbol: str) -> str:
+        """指定銘柄に関する過去の投資テーゼ・教訓・失敗パターン(警告)を取得する。
+
+        Args:
+            symbol: ティッカー。
+        """
+        if config is None:
+            return json.dumps({"error": "設定が未提供です。"}, ensure_ascii=False)
+        from .knowledge import KnowledgeBase
+
+        entries = KnowledgeBase(config.knowledge_path).for_symbol(symbol)
+        return json.dumps(
+            [
+                {"kind": e.kind, "symbol": e.symbol, "text": e.text, "trigger": e.trigger}
+                for e in entries
+            ],
+            ensure_ascii=False,
+        )
+
+    tools = [quote, technicals, portfolio_summary, record_trade, net_worth, history, knowledge]
 
     # bitFlyer の API キーが設定されている場合のみ残高取得ツールを追加
     import os
