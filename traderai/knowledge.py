@@ -31,6 +31,7 @@ class Entry:
     kind: str = "thesis"
     symbol: str = ""  # 空なら全体に対する記録
     trigger: dict | None = None  # {"metric","op","threshold"}
+    tags: list[str] = field(default_factory=list)  # 例: ["半導体","高配当"]
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:8])
     timestamp: str = field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
