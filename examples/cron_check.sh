@@ -23,8 +23,7 @@ case "$MODE" in
     traderai alerts check
     ;;
   daily)
-    traderai networth
-    traderai risk
+    traderai report --notify
     ;;
   *)
     echo "usage: cron_check.sh [check|daily]" >&2
