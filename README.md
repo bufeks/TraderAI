@@ -107,6 +107,9 @@ traderai serve   # http://127.0.0.1:8787
 # FIRE 到達年の逆算(積立増額対応)
 traderai fire --annual-expense 3600000 --monthly 53000 --contribution-growth 0.03
 
+# 確定申告の概算(損益通算・外国税額控除)※確定値ではありません
+traderai tax-return --gains 300000 --dividends 50000 --losses 120000 --foreign-dividends 80000
+
 # エージェントと対話(履歴・知識も参照して助言)
 traderai chat
 ```
@@ -188,6 +191,7 @@ traderai/
   report.py        日次レポート合成(Slack配信)
   graph.py         知識グラフ(タグで銘柄を関連付け)
   web.py           Web ダッシュボード(Chart.js)
+  taxreturn.py     確定申告補助(損益通算・外国税額控除)
   agent.py         Claude エージェント(tool use)
   cli.py           CLI エントリポイント
   brokers/         証券会社・取引所アダプタ
@@ -225,3 +229,4 @@ pytest -q
 - [x] 知識グラフ(タグで銘柄を関連付け / Neo4j不要)(`graph.py` / `knowledge graph|related`)
 - [x] Web ダッシュボード(純資産推移・配分の可視化)(`web.py` / `traderai serve`)
 - [x] FIRE 到達年逆算 / 積立増額シナリオ(`simulation.py` / `traderai fire`)
+- [x] 確定申告補助(損益通算・外国税額控除)(`taxreturn.py` / `traderai tax-return`)

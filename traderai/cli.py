@@ -44,6 +44,7 @@ from .tax import (
     ideco_tax_benefit,
     marginal_income_tax_rate,
 )
+from .taxreturn import foreign_tax_credit, offset
 
 # リバランスの既定目標配分(例。個別株偏重を是正する方向。--target で上書き可)
 DEFAULT_TARGET = "外国株式=35,投資信託=25,国内株式=20,米国株式=10,現金=8,暗号資産=2"
@@ -525,6 +526,25 @@ def _cmd_report(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_taxreturn(args: argparse.Namespace) -> int:
+    print("=== 確定申告の概算(※確定値ではありません。税理士/国税庁の手引きで確認を) ===")
+    r = offset(args.gains, args.dividends, args.losses)
+    print("[損益通算]")
+    print(f"  譲渡益 {r.gains:,.0f} + 配当 {r.dividends:,.0f} − 譲渡損 {r.losses:,.0f}")
+    print(f"  通算後の課税対象: {r.net_taxable:,.0f}")
+    print(f"  税(通算前→後): {r.tax_before:,.0f} → {r.tax_after:,.0f}(軽減 {r.tax_saved:,.0f})")
+    if r.loss_carryforward:
+        print(f"  翌年以降への繰越損: {r.loss_carryforward:,.0f}(最長3年)")
+    if args.foreign_dividends:
+        f = foreign_tax_credit(args.foreign_dividends, args.foreign_tax_rate)
+        print("\n[外国税額控除]")
+        print(f"  外国配当 {f.foreign_dividends:,.0f} / 源泉外国税 {f.foreign_tax_paid:,.0f}")
+        print(f"  控除可能額(概算): {f.creditable:,.0f}")
+        if f.double_taxed_remainder > 0:
+            print(f"  控除しきれない分: {f.double_taxed_remainder:,.0f}")
+    return 0
+
+
 def _cmd_fire(args: argparse.Namespace) -> int:
     config = Config.load()
     principal = args.principal
@@ -717,6 +737,14 @@ def main(argv: list[str] | None = None) -> int:
     p_report = sub.add_parser("report", help="日次レポート(純資産・ストレス・アラート・知識警告)")
     p_report.add_argument("--notify", action="store_true", help="Slack(SLACK_WEBHOOK_URL)へ配信")
     p_report.set_defaults(func=_cmd_report)
+
+    p_tr = sub.add_parser("tax-return", help="確定申告の概算(損益通算・外国税額控除)")
+    p_tr.add_argument("--gains", type=float, default=0.0, help="譲渡益")
+    p_tr.add_argument("--dividends", type=float, default=0.0, help="配当(国内)")
+    p_tr.add_argument("--losses", type=float, default=0.0, help="譲渡損(正の値)")
+    p_tr.add_argument("--foreign-dividends", type=float, default=0.0, help="外国配当(米国株等)")
+    p_tr.add_argument("--foreign-tax-rate", type=float, default=0.10, help="外国源泉税率(既定 0.10)")
+    p_tr.set_defaults(func=_cmd_taxreturn)
 
     p_fire = sub.add_parser("fire", help="FIRE 到達年の逆算(積立増額対応)")
     p_fire.add_argument("--annual-expense", type=float, required=True, help="年間支出(円)")
