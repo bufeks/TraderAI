@@ -23,6 +23,12 @@ from .market import MarketDataError, get_history, get_quote
 from .portfolio import Portfolio
 from .risk import concentration, max_drawdown
 from .simulation import project, scenarios
+from .tax import (
+    TAXABLE_GAIN_RATE,
+    combined_marginal_rate,
+    ideco_tax_benefit,
+    marginal_income_tax_rate,
+)
 
 
 def _cmd_quote(args: argparse.Namespace) -> int:
@@ -246,6 +252,26 @@ def _cmd_simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_tax(args: argparse.Namespace) -> int:
+    ti = args.taxable_income
+    inc_rate = marginal_income_tax_rate(ti)
+    comb = combined_marginal_rate(ti, args.resident_rate)
+    print("=== 税の概算(※確定値ではありません。詳細は税理士/公式シミュレータで) ===")
+    print(f"課税所得: {ti:,.0f} 円")
+    print(f"所得税 限界税率: {inc_rate*100:.0f}% / 住民税: {args.resident_rate*100:.0f}%")
+    print(f"合算限界税率: {comb*100:.0f}%\n")
+
+    benefit = ideco_tax_benefit(args.ideco_monthly, ti, args.years, args.resident_rate)
+    print(f"[iDeCo 節税概算] 掛金 月{args.ideco_monthly:,.0f}円(年{benefit.annual_contribution:,.0f}円)")
+    print(f"  年間節税額: 約 {benefit.annual_saving:,.0f} 円")
+    print(f"  {args.years}年間 累計: 約 {benefit.total_saving:,.0f} 円")
+    print(f"  → 拠出に対し実質 約{comb*100:.0f}% の即時リターン相当\n")
+
+    print(f"[NISA] 運用益が非課税。課税口座なら利益に約{TAXABLE_GAIN_RATE*100:.1f}%課税。")
+    print("  例: 100万円の利益 → 課税口座で約 203,150 円の税、NISA なら 0 円。")
+    return 0
+
+
 def _cmd_chat(args: argparse.Namespace) -> int:
     config = Config.load()
     if not config.anthropic_api_key:
@@ -336,6 +362,13 @@ def main(argv: list[str] | None = None) -> int:
     p_risk.add_argument("--drawdown", help="指定シンボルの最大ドローダウンを計算")
     p_risk.add_argument("--period", default="2y", help="ドローダウン計算の期間")
     p_risk.set_defaults(func=_cmd_risk)
+
+    p_tax = sub.add_parser("tax", help="税の概算(iDeCo節税・NISA)")
+    p_tax.add_argument("--taxable-income", type=float, required=True, help="課税所得(円)")
+    p_tax.add_argument("--ideco-monthly", type=float, default=23000, help="iDeCo 月額掛金(既定 23000)")
+    p_tax.add_argument("--years", type=int, default=21, help="累計を出す年数(既定 21)")
+    p_tax.add_argument("--resident-rate", type=float, default=0.10, help="住民税率(既定 0.10)")
+    p_tax.set_defaults(func=_cmd_tax)
 
     p_chat = sub.add_parser("chat", help="エージェントと対話")
     p_chat.set_defaults(func=_cmd_chat)
