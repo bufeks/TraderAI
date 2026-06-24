@@ -1,6 +1,7 @@
 #!/bin/bash
 # TraderAI.app 実行本体。ダブルクリックで Dock アプリとして起動。
 # 初回は依存ライブラリを自動セットアップし、サーバ起動を待ってブラウザを開く。
+# セットアップが失敗しても venv を作り直して自動リトライする。
 # Terminal は出ない。停止は Dock アイコン右クリック →「終了」。
 
 PORT="${TRADERAI_PORT:-8787}"
@@ -24,20 +25,41 @@ cd "$REPO" || exit 1
 
 LOG="/tmp/traderai_setup.log"
 
-# --- venv が無ければ作成 ------------------------------------------
-if [ ! -x "$REPO/.venv/bin/python" ]; then
-  python3 -m venv "$REPO/.venv" >"$LOG" 2>&1
-fi
-PY="$REPO/.venv/bin/python"
-[ -x "$PY" ] || PY="python3"
+deps_ok() { "$1" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; }
 
-# --- 依存ライブラリを確認。無ければ初回自動セットアップ ----------
-if ! "$PY" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; then
+# 依存ライブラリを 1 つの venv にインストール。成功すれば 0。
+install_into() {
+  local py="$1"
+  "$py" -m pip install --upgrade pip setuptools wheel >>"$LOG" 2>&1
+  "$py" -m pip install -e "$REPO" >>"$LOG" 2>&1
+  deps_ok "$py"
+}
+
+PY="$REPO/.venv/bin/python"
+
+if ! [ -x "$PY" ] || ! deps_ok "$PY"; then
   osascript -e 'display notification "初期セットアップ中… 数分かかる場合があります" with title "TraderAI"' >/dev/null 2>&1
-  "$PY" -m pip install --upgrade pip setuptools wheel >"$LOG" 2>&1
-  "$PY" -m pip install -e "$REPO" >>"$LOG" 2>&1
-  if ! "$PY" -c "import pandas, yfinance, anthropic" >/dev/null 2>&1; then
-    osascript -e 'display alert "TraderAI セットアップ失敗" message "依存ライブラリのインストールに失敗しました。ターミナルで cd ~/TraderAI && source .venv/bin/activate && pip install -e . を実行してエラーを確認してください(ログ: /tmp/traderai_setup.log)。"' >/dev/null 2>&1
+  : >"$LOG"
+
+  # 1) 既存 venv があればそのままインストールを試す
+  if [ -x "$PY" ]; then
+    echo "=== try existing venv ===" >>"$LOG"
+    install_into "$PY"
+  fi
+
+  # 2) ダメなら venv を作り直して再挑戦(壊れた venv の自己修復)
+  if ! deps_ok "$PY"; then
+    echo "=== recreate venv ===" >>"$LOG"
+    rm -rf "$REPO/.venv"
+    python3 -m venv "$REPO/.venv" >>"$LOG" 2>&1
+    PY="$REPO/.venv/bin/python"
+    [ -x "$PY" ] && install_into "$PY"
+  fi
+
+  # 3) それでもダメなら、ログ末尾を添えて失敗を通知
+  if ! deps_ok "$PY"; then
+    TAIL="$(tail -n 12 "$LOG" 2>/dev/null | sed 's/"/\\"/g')"
+    osascript -e "display alert \"TraderAI セットアップ失敗\" message \"依存ライブラリのインストールに失敗しました。下記エラーを確認してください(全文: $LOG)。\n\n$TAIL\"" >/dev/null 2>&1
     exit 1
   fi
 fi
